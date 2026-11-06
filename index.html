@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aseguradora General - Control de Acceso</title>
+    <!-- Fallback-Sicherheit über cdnjs (Cloudflare), falls jsdelivr/unpkg blockiert sind -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" integrity="sha512-r6rDA7W6ZeQhvl8S7yRVQUKVHdxW+CD68BS0yb1fEGGYEYyb1FkmrHBKWKCHlXUPn6bInE9XwHexWagVCv6E9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         :root {
             --ag-blue: #002855;
@@ -29,8 +31,13 @@
         }
         header h1 { margin: 0; font-size: 1.25rem; font-weight: bold; letter-spacing: 0.05em; }
         header p { margin: 0; font-size: 0.75rem; color: #93c5fd; }
-        .header-status { text-align: right; }
-        .version-label { font-size: 0.65rem; color: #93c5fd; font-family: monospace; margin-top: 0.25rem; display: block; }
+        .header-right {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.25rem;
+        }
         .badge {
             background-color: #1e3a8a;
             color: #dbeafe;
@@ -39,7 +46,11 @@
             border-radius: 9999px;
             font-weight: 600;
             border: 1px solid #1d4ed8;
-            display: inline-block;
+        }
+        .version {
+            font-size: 0.65rem;
+            color: #93c5fd;
+            font-family: monospace;
         }
         main {
             flex-grow: 1;
@@ -94,11 +105,10 @@
         .scanner-title { font-size: 0.875rem; font-weight: bold; color: #374151; }
         #reset-btn { font-size: 0.75rem; font-weight: 600; color: var(--ag-accent); background: none; border: none; cursor: pointer; }
         #reset-btn:hover { text-decoration: underline; }
-        #reader { width: 100%; background-color: black; }
+        #reader { width: 100%; background-color: white; }
         .scanner-footer { background-color: #f9fafb; padding: 1rem; border-top: 1px solid #f3f4f6; text-align: center; font-size: 0.75rem; color: #9ca3af; }
         footer { text-align: center; padding: 1rem; font-size: 0.75rem; color: #9ca3af; }
     </style>
-    <script src="html5-qrcode.min.js"></script>
 </head>
 <body>
 
@@ -107,13 +117,14 @@
             <h1>ASEGURADORA GENERAL</h1>
             <p>Control de Acceso de Invitados</p>
         </div>
-        <div class="header-status">
+        <div class="header-right">
             <div class="badge">🟢 Sistema Activo</div>
-            <span class="version-label">v1.1.0</span>
+            <div class="version">v1.2.0</div>
         </div>
     </header>
 
     <main>
+        <!-- Status- und Ergebnis-Anzeige -->
         <div id="result-card" class="card">
             <div id="result-icon">📋</div>
             <h2 id="result-title">Estado</h2>
@@ -125,13 +136,14 @@
             </div>
         </div>
 
+        <!-- Scanner Card -->
         <div class="scanner-container">
             <div class="scanner-header">
                 <span class="scanner-title">Cámara de Escaneo</span>
                 <button id="reset-btn" onclick="resetScannerView()">Limpiar pantalla</button>
             </div>
             
-            <div id="reader" style="min-height: 250px;"></div>
+            <div id="reader"></div>
             
             <div class="scanner-footer">
                 Asegure una buena iluminación para el código QR.
@@ -151,7 +163,7 @@
         let lastResult = null;
         let isProcessing = false;
 
-        async function onScanSuccess(decodedText, decodedResult) {
+        function onScanSuccess(decodedText, decodedResult) {
             if (isProcessing || decodedText === lastResult) return;
             
             isProcessing = true;
@@ -159,19 +171,17 @@
             
             showLoadingView();
 
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_and_scan_guest`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({ target_guest_num: decodedText })
-                });
-
-                const data = await response.json();
-                
+            fetch(`${SUPABASE_URL}/rest/v1/rpc/check_and_scan_guest`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({ target_guest_num: decodedText })
+            })
+            .then(response => response.json())
+            .then(data => {
                 if (!data || data.length === 0 || data.status === null) {
                     showStatus('INVALID', 'Código Inválido', 'Este código QR no pertenece a la lista de invitados.', decodedText);
                 } else {
@@ -181,21 +191,23 @@
                         showStatus('ALREADY', '⚠️ Código Ya Utilizado', 'Este boleto ya ingresó anteriormente.', data.guest_name, decodedText);
                     }
                 }
-            } catch (error) {
+            })
+            .catch(error => {
                 console.error("Datenbankfehler:", error);
                 showStatus('ERROR', 'Error de Conexión', 'No se pudo conectar a la base de datos.', '-');
-            } finally {
+            })
+            .finally(() => {
                 setTimeout(() => { 
                     isProcessing = false; 
                     lastResult = null; 
                 }, 3000);
-            }
+            });
         }
 
         function showLoadingView() {
             const card = document.getElementById('result-card');
             card.style.display = 'block';
-            card.style.borderTopColor = '#3b82f6';
+            card.style.borderTop = '8px solid #3b82f6';
             card.style.backgroundColor = '#ffffff';
             document.getElementById('result-icon').innerText = "⏳";
             document.getElementById('result-title').innerText = "Verificando...";
@@ -214,17 +226,17 @@
             card.style.display = 'block';
             
             if (type === 'SUCCESS') {
-                card.style.borderTopColor = '#10b981';
+                card.style.borderTop = '8px solid #10b981';
                 card.style.backgroundColor = '#f0fdf4';
                 icon.innerText = "✅";
                 rTitle.style.color = '#15803d';
             } else if (type === 'ALREADY') {
-                card.style.borderTopColor = '#f59e0b';
+                card.style.borderTop = '8px solid #f59e0b';
                 card.style.backgroundColor = '#fffbeb';
                 icon.innerText = "❌";
                 rTitle.style.color = '#b45309';
             } else {
-                card.style.borderTopColor = '#dc2626';
+                card.style.borderTop = '8px solid #dc2626';
                 card.style.backgroundColor = '#fef2f2';
                 icon.innerText = "🚨";
                 rTitle.style.color = '#b91c1c';
@@ -248,6 +260,22 @@
         }
 
         function initScanner() {
+            // Falls das CDN blockiert wurde, versuchen wir ein dynamisches Fallback auf unpkg/jsdelivr im Code-Context
+            if (typeof Html5QrcodeScanner === 'undefined') {
+                console.warn("cdnjs blockiert, lade alternatives CDN...");
+                let script = document.createElement('script');
+                script.src = "https://unpkg.com/html5-qrcode";
+                script.onload = () => { setupScannerInstance(); };
+                script.onerror = () => {
+                    document.getElementById('reader').innerHTML = '<div style="padding:20px;color:red;text-align:center;">🚨 Error: No se pudieron cargar los scripts del escáner. Verifique su red.</div>';
+                };
+                document.head.appendChild(script);
+            } else {
+                setupScannerInstance();
+            }
+        }
+
+        function setupScannerInstance() {
             html5QrcodeScanner = new Html5QrcodeScanner(
                 "reader", 
                 { 
