@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR-Code Generator – Aseguradora General</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        .bg-corporate { background-color: #003366; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen">
+
+    <header class="bg-corporate text-white p-5 text-center shadow-lg">
+        <h1 class="text-2xl font-bold uppercase tracking-wide">Aseguradora General</h1>
+        <p class="text-sm text-blue-200 mt-1">QR-Code Generator für Gäste</p>
+    </header>
+
+    <main class="max-w-3xl mx-auto p-6">
+
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">1. CSV-Datei hochladen</h2>
+            
+            <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors">
+                <input type="file" id="csvFile" accept=".csv" class="hidden">
+                <label for="csvFile" class="cursor-pointer">
+                    <div class="text-4xl mb-3">📄</div>
+                    <p class="text-gray-600 font-medium">CSV hier ablegen oder klicken</p>
+                    <p class="text-xs text-gray-400 mt-2">Format: guest_number,name</p>
+                </label>
+            </div>
+
+            <div id="fileInfo" class="mt-4 text-sm text-gray-600 hidden">
+                <span class="font-semibold">Datei:</span> <span id="fileName"></span>
+                <span class="ml-4 font-semibold">Zeilen:</span> <span id="rowCount">0</span>
+            </div>
+        </div>
+
+        <div id="previewSection" class="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200 hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <h2 class="text-lg font-bold text-gray-800">2. Vorschau & Download</h2>
+                <button id="downloadBtn" 
+                        class="bg-corporate hover:bg-blue-900 text-white font-bold py-2.5 px-6 rounded-xl shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    📦 ZIP herunterladen
+                </button>
+            </div>
+
+            <div id="status" class="text-sm text-gray-500 mb-4"></div>
+            <div id="previewGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+        </div>
+
+        <div id="progressBox" class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 hidden">
+            <h3 class="font-bold text-gray-800 mb-2">Generiere QR-Codes...</h3>
+            <div class="w-full bg-gray-200 rounded-full h-3">
+                <div id="progressBar" class="bg-corporate h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p id="progressText" class="text-sm text-gray-500 mt-2">0 / 0</p>
+        </div>
+
+    </main>
+
+    <footer class="text-center py-4 text-xs text-gray-500">
+        © 2026 Aseguradora General, S.A. · Guatemala
+    </footer>
+
+    <script>
+        let guests = [];
+
+        const csvFileInput   = document.getElementById('csvFile');
+        const fileInfo       = document.getElementById('fileInfo');
+        const fileNameEl     = document.getElementById('fileName');
+        const rowCountEl     = document.getElementById('rowCount');
+        const previewSection = document.getElementById('previewSection');
+        const previewGrid    = document.getElementById('previewGrid');
+        const downloadBtn    = document.getElementById('downloadBtn');
+        const statusEl       = document.getElementById('status');
+        const progressBox    = document.getElementById('progressBox');
+        const progressBar    = document.getElementById('progressBar');
+        const progressText   = document.getElementById('progressText');
+
+        csvFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            fileNameEl.textContent = file.name;
+            fileInfo.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = e => parseCSV(e.target.result);
+            reader.readAsText(file);
+        });
+
+        function parseCSV(text) {
+            const lines = text.trim().split(/\r?\n/);
+            guests = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const parts = line.split(',');
+                if (parts.length >= 2) {
+                    const guest_number = parts[0].trim();
+                    const name = parts.slice(1).join(',').trim();
+                    if (guest_number) guests.push({ guest_number, name });
+                }
+            }
+
+            rowCountEl.textContent = guests.length;
+            previewSection.classList.remove('hidden');
+            previewGrid.innerHTML = '';
+
+            const previewCount = Math.min(12, guests.length);
+            for (let i = 0; i < previewCount; i++) createQRPreview(guests[i]);
+
+            if (guests.length > 12) {
+                const more = document.createElement('div');
+                more.className = 'col-span-full text-center text-sm text-gray-500 py-2';
+                more.textContent = `… und ${guests.length - 12} weitere`;
+                previewGrid.appendChild(more);
+            }
+
+            downloadBtn.disabled = false;
+            statusEl.textContent = `Bereit. ${guests.length} QR-Codes können heruntergeladen werden.`;
+        }
+
+        function createQRPreview(guest) {
+            const card = document.createElement('div');
+            card.className = 'bg-gray-50 rounded-xl p-3 text-center border border-gray-200';
+
+            const canvas = document.createElement('canvas');
+            card.appendChild(canvas);
+
+            new QRious({
+                element: canvas,
+                value: guest.guest_number,
+                size: 110,
+                foreground: '#000000',
+                background: '#ffffff',
+                level: 'M',
+                padding: 12
+            });
+
+            const label = document.createElement('p');
+            label.className = 'text-xs font-mono text-gray-700 truncate mt-2';
+            label.textContent = guest.guest_number;
+            card.appendChild(label);
+
+            const nameLabel = document.createElement('p');
+            nameLabel.className = 'text-xs text-gray-500 truncate';
+            nameLabel.textContent = guest.name;
+            card.appendChild(nameLabel);
+
+            previewGrid.appendChild(card);
+        }
+
+        // Dateiname sicher machen (Sonderzeichen entfernen)
+        function safeFilename(name) {
+            return name
+                .normalize('NFD')                     // Akzente zerlegen
+                .replace(/[\u0300-\u036f]/g, '')     // Akzente entfernen
+                .replace(/[^a-zA-Z0-9\-_\s]/g, '')   // nur erlaubte Zeichen
+                .trim()
+                .replace(/\s+/g, '_');                // Leerzeichen → Unterstrich
+        }
+
+        downloadBtn.addEventListener('click', async function() {
+            if (guests.length === 0) return;
+
+            downloadBtn.disabled = true;
+            progressBox.classList.remove('hidden');
+            statusEl.textContent = 'QR-Codes werden generiert...';
+
+            const zip = new JSZip();
+            const total = guests.length;
+            const canvas = document.createElement('canvas');
+
+            for (let i = 0; i < total; i++) {
+                const guest = guests[i];
+
+                new QRious({
+                    element: canvas,
+                    value: guest.guest_number,
+                    size: 512,
+                    foreground: '#000000',
+                    background: '#ffffff',
+                    level: 'H',
+                    padding: 40
+                });
+
+                const dataUrl = canvas.toDataURL('image/png');
+                const base64 = dataUrl.split(',')[1];
+
+                // Dateiname: AG-10001_Juan_Perez.png
+                const safeName = safeFilename(guest.name);
+                const filename = `${guest.guest_number}_${safeName}.png`;
+
+                zip.file(filename, base64, { base64: true });
+
+                const percent = Math.round(((i + 1) / total) * 100);
+                progressBar.style.width = percent + '%';
+                progressText.textContent = `${i + 1} / ${total}`;
+
+                if (i % 8 === 0) await new Promise(r => setTimeout(r, 1));
+            }
+
+            const content = await zip.generateAsync({ type: 'blob' });
+            saveAs(content, `QR-Codes_Aseguradora_General_${new Date().toISOString().slice(0,10)}.zip`);
+
+            progressBox.classList.add('hidden');
+            downloadBtn.disabled = false;
+            statusEl.textContent = `Fertig! ZIP mit ${total} QR-Codes (inkl. Name im Dateinamen).`;
+        });
+    </script>
+</body>
+</html>
