@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR-Code Generator – Aseguradora General</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        .bg-corporate { background-color: #003366; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen">
+
+    <header class="bg-corporate text-white p-5 text-center shadow-lg">
+        <h1 class="text-2xl font-bold uppercase tracking-wide">Aseguradora General</h1>
+        <p class="text-sm text-blue-200 mt-1">QR-Code Generator für Gäste</p>
+    </header>
+
+    <main class="max-w-3xl mx-auto p-6">
+
+        <!-- Beispiel-CSV Download -->
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+                <p class="font-semibold text-blue-900 text-sm">Beispiel-Datei mit 100 Gästen</p>
+                <p class="text-xs text-blue-700 mt-0.5">Zum Testen herunterladen und danach hier hochladen</p>
+            </div>
+            <button id="downloadExampleBtn" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg whitespace-nowrap">
+                📥 Beispiel-CSV herunterladen
+            </button>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">1. CSV-Datei hochladen</h2>
+            
+            <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors">
+                <input type="file" id="csvFile" accept=".csv" class="hidden">
+                <label for="csvFile" class="cursor-pointer">
+                    <div class="text-4xl mb-3">📄</div>
+                    <p class="text-gray-600 font-medium">CSV hier ablegen oder klicken</p>
+                    <p class="text-xs text-gray-400 mt-2">Format: guest_number,name</p>
+                </label>
+            </div>
+
+            <div id="fileInfo" class="mt-4 text-sm text-gray-600 hidden">
+                <span class="font-semibold">Datei:</span> <span id="fileName"></span>
+                <span class="ml-4 font-semibold">Zeilen:</span> <span id="rowCount">0</span>
+            </div>
+        </div>
+
+        <div id="previewSection" class="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200 hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <h2 class="text-lg font-bold text-gray-800">2. Vorschau & Download</h2>
+                <button id="downloadBtn" 
+                        class="bg-corporate hover:bg-blue-900 text-white font-bold py-2.5 px-6 rounded-xl shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    📦 ZIP herunterladen
+                </button>
+            </div>
+
+            <div id="status" class="text-sm text-gray-500 mb-4"></div>
+            <div id="previewGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+        </div>
+
+        <div id="progressBox" class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 hidden">
+            <h3 class="font-bold text-gray-800 mb-2">Generiere QR-Codes...</h3>
+            <div class="w-full bg-gray-200 rounded-full h-3">
+                <div id="progressBar" class="bg-corporate h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p id="progressText" class="text-sm text-gray-500 mt-2">0 / 0</p>
+        </div>
+
+    </main>
+
+    <footer class="text-center py-4 text-xs text-gray-500">
+        © 2026 Aseguradora General, S.A. · Guatemala
+    </footer>
+
+    <script>
+        // ========== 100 Beispiel-Gäste (eingebettet) ==========
+        const EXAMPLE_CSV = `guest_number,name
+AG-10001,Juan Pérez
+AG-10002,María Rodríguez
+AG-10003,Carlos Mendoza
+AG-10004,Ana López
+AG-10005,Luis García
+AG-10006,Sofía Martínez
+AG-10007,Pedro Hernández
+AG-10008,Laura González
+AG-10009,Diego Ramírez
+AG-10010,Camila Torres
+AG-10011,Andrés Flores
+AG-10012,Valeria Morales
+AG-10013,Javier Castillo
+AG-10014,Isabella Ruiz
+AG-10015,Miguel Sánchez
+AG-10016,Daniela Vargas
+AG-10017,Ricardo Ortiz
+AG-10018,Gabriela Jiménez
+AG-10019,Fernando Cruz
+AG-10020,Patricia Reyes
+AG-10021,Alejandro Soto
+AG-10022,Carolina Méndez
+AG-10023,Roberto Aguilar
+AG-10024,Elena Navarro
+AG-10025,José Domínguez
+AG-10026,Lucía Herrera
+AG-10027,Manuel Peña
+AG-10028,Andrea Rivas
+AG-10029,Francisco Guzmán
+AG-10030,Mariana Silva
+AG-10031,Ángel Cabrera
+AG-10032,Paula Estrada
+AG-10033,Sergio Pineda
+AG-10034,Claudia Molina
+AG-10035,Héctor Vargas
+AG-10036,Natalia Campos
+AG-10037,Eduardo Rojas
+AG-10038,Verónica Soto
+AG-10039,Óscar Méndez
+AG-10040,Adriana Fuentes
+AG-10041,Raúl Cordero
+AG-10042,Monica Salazar
+AG-10043,Guillermo León
+AG-10044,Beatriz Aguilar
+AG-10045,Iván Morales
+AG-10046,Silvia Reyes
+AG-10047,Alberto Castillo
+AG-10048,Rosa Jiménez
+AG-10049,Enrique Torres
+AG-10050,Carmen López
+AG-10051,Mario Hernández
+AG-10052,Teresa García
+AG-10053,Pablo Martínez
+AG-10054,Elena Rodríguez
+AG-10055,Jorge Pérez
+AG-10056,Alicia Mendoza
+AG-10057,Rafael Flores
+AG-10058,Gloria Ramírez
+AG-10059,Víctor González
+AG-10060,Irene Torres
+AG-10061,Alfonso Sánchez
+AG-10062,Cristina Vargas
+AG-10063,Ernesto Ortiz
+AG-10064,Diana Jiménez
+AG-10065,Felipe Cruz
+AG-10066,Sandra Reyes
+AG-10067,Gustavo Soto
+AG-10068,Lorena Méndez
+AG-10069,Arturo Aguilar
+AG-10070,Patricia Navarro
+AG-10071,Hugo Domínguez
+AG-10072,Mónica Herrera
+AG-10073,César Peña
+AG-10074,Liliana Rivas
+AG-10075,Mauricio Guzmán
+AG-10076,Susana Silva
+AG-10077,Rodrigo Cabrera
+AG-10078,Yolanda Estrada
+AG-10079,Esteban Pineda
+AG-10080,Inés Molina
+AG-10081,Nicolás Vargas
+AG-10082,Alejandra Campos
+AG-10083,Sebastián Rojas
+AG-10084,Fernanda Soto
+AG-10085,Emilio Méndez
+AG-10086,Valentina Fuentes
+AG-10087,Tomás Cordero
+AG-10088,Catalina Salazar
+AG-10089,Joaquín León
+AG-10090,Amparo Aguilar
+AG-10091,Ignacio Morales
+AG-10092,Esperanza Reyes
+AG-10093,Salvador Castillo
+AG-10094,Consuelo Jiménez
+AG-10095,Ramiro Torres
+AG-10096,Dolores López
+AG-10097,Fabián Hernández
+AG-10098,Pilar García
+AG-10099,Mateo Martínez
+AG-10100,Regina Rodríguez`;
+
+        // Beispiel-CSV herunterladen
+        document.getElementById('downloadExampleBtn').addEventListener('click', () => {
+            const blob = new Blob([EXAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
+            saveAs(blob, 'Testdaten_100_Gaeste.csv');
+        });
+
+        let guests = [];
+
+        const csvFileInput   = document.getElementById('csvFile');
+        const fileInfo       = document.getElementById('fileInfo');
+        const fileNameEl     = document.getElementById('fileName');
+        const rowCountEl     = document.getElementById('rowCount');
+        const previewSection = document.getElementById('previewSection');
+        const previewGrid    = document.getElementById('previewGrid');
+        const downloadBtn    = document.getElementById('downloadBtn');
+        const statusEl       = document.getElementById('status');
+        const progressBox    = document.getElementById('progressBox');
+        const progressBar    = document.getElementById('progressBar');
+        const progressText   = document.getElementById('progressText');
+
+        csvFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            fileNameEl.textContent = file.name;
+            fileInfo.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = e => parseCSV(e.target.result);
+            reader.readAsText(file);
+        });
+
+        function parseCSV(text) {
+            const lines = text.trim().split(/\r?\n/);
+            guests = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const parts = line.split(',');
+                if (parts.length >= 2) {
+                    const guest_number = parts[0].trim();
+                    const name = parts.slice(1).join(',').trim();
+                    if (guest_number) guests.push({ guest_number, name });
+                }
+            }
+
+            rowCountEl.textContent = guests.length;
+            previewSection.classList.remove('hidden');
+            previewGrid.innerHTML = '';
+
+            const previewCount = Math.min(12, guests.length);
+            for (let i = 0; i < previewCount; i++) createQRPreview(guests[i]);
+
+            if (guests.length > 12) {
+                const more = document.createElement('div');
+                more.className = 'col-span-full text-center text-sm text-gray-500 py-2';
+                more.textContent = `… und ${guests.length - 12} weitere`;
+                previewGrid.appendChild(more);
+            }
+
+            downloadBtn.disabled = false;
+            statusEl.textContent = `Bereit. ${guests.length} QR-Codes können heruntergeladen werden.`;
+        }
+
+        function createQRPreview(guest) {
+            const card = document.createElement('div');
+            card.className = 'bg-gray-50 rounded-xl p-3 text-center border border-gray-200';
+
+            const canvas = document.createElement('canvas');
+            card.appendChild(canvas);
+
+            new QRious({
+                element: canvas,
+                value: guest.guest_number,
+                size: 110,
+                foreground: '#000000',
+                background: '#ffffff',
+                level: 'M',
+                padding: 12
+            });
+
+            const label = document.createElement('p');
+            label.className = 'text-xs font-mono text-gray-700 truncate mt-2';
+            label.textContent = guest.guest_number;
+            card.appendChild(label);
+
+            const nameLabel = document.createElement('p');
+            nameLabel.className = 'text-xs text-gray-500 truncate';
+            nameLabel.textContent = guest.name;
+            card.appendChild(nameLabel);
+
+            previewGrid.appendChild(card);
+        }
+
+        function safeFilename(name) {
+            return name
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9\-_\s]/g, '')
+                .trim()
+                .replace(/\s+/g, '_');
+        }
+
+        downloadBtn.addEventListener('click', async function() {
+            if (guests.length === 0) return;
+
+            downloadBtn.disabled = true;
+            progressBox.classList.remove('hidden');
+            statusEl.textContent = 'QR-Codes werden generiert...';
+
+            const zip = new JSZip();
+            const total = guests.length;
+            const canvas = document.createElement('canvas');
+
+            for (let i = 0; i < total; i++) {
+                const guest = guests[i];
+
+                new QRious({
+                    element: canvas,
+                    value: guest.guest_number,
+                    size: 512,
+                    foreground: '#000000',
+                    background: '#ffffff',
+                    level: 'H',
+                    padding: 40
+                });
+
+                const dataUrl = canvas.toDataURL('image/png');
+                const base64 = dataUrl.split(',')[1];
+
+                const safeName = safeFilename(guest.name);
+                const filename = `${guest.guest_number}_${safeName}.png`;
+                zip.file(filename, base64, { base64: true });
+
+                const percent = Math.round(((i + 1) / total) * 100);
+                progressBar.style.width = percent + '%';
+                progressText.textContent = `${i + 1} / ${total}`;
+
+                if (i % 8 === 0) await new Promise(r => setTimeout(r, 1));
+            }
+
+            const content = await zip.generateAsync({ type: 'blob' });
+            saveAs(content, `QR-Codes_Aseguradora_General_${new Date().toISOString().slice(0,10)}.zip`);
+
+            progressBox.classList.add('hidden');
+            downloadBtn.disabled = false;
+            statusEl.textContent = `Fertig! ZIP mit ${total} QR-Codes.`;
+        });
+    </script>
+</body>
+</html>
