@@ -91,23 +91,12 @@
         .scanner-title { font-size: 0.875rem; font-weight: bold; color: #374151; }
         #reset-btn { font-size: 0.75rem; font-weight: 600; color: var(--ag-accent); background: none; border: none; cursor: pointer; }
         #reset-btn:hover { text-decoration: underline; }
-        #reader { width: 100%; background-color: black; position: relative; }
+        #reader { width: 100%; background-color: black; }
         .scanner-footer { background-color: #f9fafb; padding: 1rem; border-top: 1px solid #f3f4f6; text-align: center; font-size: 0.75rem; color: #9ca3af; }
         footer { text-align: center; padding: 1rem; font-size: 0.75rem; color: #9ca3af; }
-        
-        .scan-overlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 200px;
-            height: 200px;
-            border: 3px solid #3b82f6;
-            border-radius: 12px;
-            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.4);
-            pointer-events: none;
-        }
     </style>
+    <!-- Lokales Nachladen des QR-Scanner-Gehirns aus demselben Repository -->
+    <script src="html5-qrcode.min.js"></script>
 </head>
 <body>
 
@@ -137,10 +126,7 @@
                 <button id="reset-btn" onclick="resetScannerView()">Limpiar pantalla</button>
             </div>
             
-            <div id="reader">
-                <video id="webcam-preview" autoplay playsinline style="width: 100%; height: 320px; object-fit: cover; background: black;"></video>
-                <div class="scan-overlay"></div>
-            </div>
+            <div id="reader" style="width: 100%;"></div>
             
             <div class="scanner-footer">
                 Asegure una buena iluminación para el código QR.
@@ -156,60 +142,11 @@
         const SUPABASE_URL = "https://ihlgngbrhxlhjptxlxfp.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_vwBzzamSzpwoY-Hq4kYjNQ_ooAlwBaw";
 
+        let html5QrcodeScanner;
         let lastResult = null;
         let isProcessing = false;
-        let videoElement = document.getElementById('webcam-preview');
 
-        const barcodeDetectorAvailable = ('BarcodeDetector' in window);
-        let barcodeDetector = null;
-        if (barcodeDetectorAvailable) {
-            try {
-                barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
-            } catch (e) {
-                console.warn("BarcodeDetector Fallback aktiv");
-            }
-        }
-
-        async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: "environment",
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
-                    } 
-                });
-                videoElement.srcObject = stream;
-                requestAnimationFrame(scanTick);
-            } catch (err) {
-                console.error("Kamera-Fehler: ", err);
-                document.getElementById('reader').innerHTML = '<div style="padding:40px 20px;color:#dc2626;text-align:center;font-weight:bold;">⚠️ Error: Permiso de cámara denegado o no disponible.</div>';
-            }
-        }
-
-        async function scanTick() {
-            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA && !isProcessing) {
-                try {
-                    let codeFound = null;
-
-                    if (barcodeDetector) {
-                        const barcodes = await barcodeDetector.detect(videoElement);
-                        if (barcodes.length > 0) {
-                            codeFound = barcodes.rawValue;
-                        }
-                    }
-
-                    if (codeFound) {
-                        onScanSuccess(codeFound);
-                    }
-                } catch (e) {
-                    // Stille Fehlerbehandlung
-                }
-            }
-            requestAnimationFrame(scanTick);
-        }
-
-        async function onScanSuccess(decodedText) {
+        async function onScanSuccess(decodedText, decodedResult) {
             if (isProcessing || decodedText === lastResult) return;
             
             isProcessing = true;
@@ -233,16 +170,15 @@
                 if (!data || data.length === 0 || data.status === null) {
                     showStatus('INVALID', 'Código Inválido', 'Este código QR no pertenece a la lista de invitados.', decodedText);
                 } else {
-                    const result = data;
-                    if (result.status === 'SUCCESS') {
-                        showStatus('SUCCESS', '¡Acceso Permitido!', 'Bienvenido(a) al evento.', result.guest_name, decodedText);
-                    } else if (result.status === 'ALREADY_SCANNED') {
-                        showStatus('ALREADY', '⚠️ Código Ya Utilizado', 'Este boleto ya ingresó anteriormente.', result.guest_name, decodedText);
+                    if (data.status === 'SUCCESS') {
+                        showStatus('SUCCESS', '¡Acceso Permitido!', 'Bienvenido(a) al evento.', data.guest_name, decodedText);
+                    } else if (data.status === 'ALREADY_SCANNED') {
+                        showStatus('ALREADY', '⚠️ Código Ya Utilizado', 'Este boleto ya ingresó anteriormente.', data.guest_name, decodedText);
                     }
                 }
             } catch (error) {
                 console.error("Datenbankfehler:", error);
-                showStatus('ERROR', 'Error de Conexión', 'No se pudo conectar a la base de datos.', '-');
+                showStatus('ERROR', 'Error de Conexión', 'No se konnte keine Verbindung zur DB herstellen.', '-');
             } finally {
                 setTimeout(() => { 
                     isProcessing = false; 
@@ -306,7 +242,25 @@
             lastResult = null;
         }
 
-        window.addEventListener('DOMContentLoaded', startCamera);
+        function initScanner() {
+            // Warten bis die externe JS geladen ist
+            if (typeof Html5QrcodeScanner !== 'undefined') {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    "reader", 
+                    { 
+                        fps: 15, 
+                        qrbox: { width: 250, height: 250 },
+                        rememberLastUsedCamera: true
+                    },
+                    false
+                );
+                html5QrcodeScanner.render(onScanSuccess);
+            } else {
+                setTimeout(initScanner, 200);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initScanner);
     </script>
 </body>
 </html>
