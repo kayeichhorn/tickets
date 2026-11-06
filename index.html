@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aseguradora General - Control de Acceso</title>
+    <!-- Tailwind CSS für modernes UI Framework -->
+    <script src="https://jsdelivr.net"></script>
+    <!-- HTML5-QR Code Scanner Library -->
+    <script src="https://unpkg.com"></script>
+    <style>
+        /* Aseguradora General Farbpalette (Dunkelblau Corporate Identity) */
+        :root {
+            --ag-blue: #002855;
+            --ag-accent: #004b87;
+        }
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Roboto, sans-serif; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Header / Navbar im Corporate Design -->
+    <header class="bg-[#002855] text-white shadow-md py-4 px-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-lg font-bold tracking-wider">ASEGURADORA GENERAL</h1>
+            <p class="text-xs text-blue-200">Control de Acceso de Invitados</p>
+        </div>
+        <div class="bg-blue-900 text-xs px-3 py-1 rounded-full text-blue-100 font-semibold border border-blue-700">
+            🟢 Sistema Activo
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow container mx-auto max-w-md p-4 flex flex-col justify-center">
+        
+        <!-- Status- und Ergebnis-Anzeige (Dynamisch) -->
+        <div id="result-card" class="bg-white rounded-xl shadow-lg p-6 mb-6 text-center border-t-8 border-gray-300 transition-all duration-300 hidden">
+            <div id="result-icon" class="text-5xl mb-2">📋</div>
+            <h2 id="result-title" class="text-2xl font-bold mb-1">Estado</h2>
+            <p id="result-msg" class="text-gray-600 font-medium mb-4">Escanee un código QR para comenzar.</p>
+            <div id="guest-info" class="bg-gray-50 rounded-lg p-3 border border-gray-100 text-left hidden">
+                <p class="text-xs text-gray-400 uppercase tracking-wider">Invitado</p>
+                <p id="guest-name" class="text-lg font-bold text-gray-800">-</p>
+                <p id="guest-num" class="text-sm font-mono text-gray-500 mt-1">-</p>
+            </div>
+        </div>
+
+        <!-- Scanner Card -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+            <div class="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
+                <span class="text-sm font-bold text-gray-700">Cámara de Escaneo</span>
+                <button id="reset-btn" class="text-xs font-semibold text-[#004b87] hover:underline" onclick="resetScannerView()">Limpiar pantalla</button>
+            </div>
+            
+            <!-- Hier wird das Kamera-Feed gerendert -->
+            <div id="reader" class="w-full bg-black"></div>
+            
+            <div class="p-4 bg-gray-50 border-t border-gray-100 text-center">
+                <p class="text-xs text-gray-400">Asegure una buena iluminación para el código QR.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 text-xs text-gray-400">
+        &copy; 2026 Aseguradora General, S.A. Todos los derechos reservados.
+    </footer>
+
+    <script>
+        // --- CONFIGURACIÓN DE SUPABASE (LIVE-DATEN BEREITS AKTUALISIERT) ---
+        const SUPABASE_URL = "https://supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_vwBzzamSzpwoY-Hq4kYjNQ_ooAlwBaw";
+
+        let html5QrcodeScanner;
+        let lastResult = null;
+        let isProcessing = false;
+
+        async function onScanSuccess(decodedText, decodedResult) {
+            // Verhindert doppeltes Triggern, während der Server noch antwortet
+            if (isProcessing || decodedText === lastResult) return;
+            
+            isProcessing = true;
+            lastResult = decodedText;
+            
+            showLoadingView();
+
+            try {
+                // Aufruf der in Supabase geschriebenen RPC-Funktion (Sicher gegen zeitgleiche Zugriffe)
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_and_scan_guest`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ target_guest_num: decodedText })
+                });
+
+                const data = await response.json();
+                
+                if (!data || data.length === 0 || data.status === null) {
+                    showStatus('INVALID', 'Código Inválido', 'Este código QR no pertenece a la lista de invitados.', decodedText);
+                } else {
+                    const result = data;
+                    if (result.status === 'SUCCESS') {
+                        showStatus('SUCCESS', '¡Acceso Permitido!', 'Bienvenido(a) al evento.', result.guest_name, decodedText);
+                    } else if (result.status === 'ALREADY_SCANNED') {
+                        showStatus('ALREADY', '⚠️ Código Ya Utilizado', 'Este boleto ya ingresó anteriormente.', result.guest_name, decodedText);
+                    }
+                }
+            } catch (error) {
+                console.error("Error connecting to database:", error);
+                showStatus('ERROR', 'Error de Conexión', 'No se pudo verificar en la base de datos. Intente de nuevo.', '-');
+            } finally {
+                // Nach 2,5 Sekunden kann der nächste Code gescannt werden
+                setTimeout(() => { 
+                    isProcessing = false; 
+                    lastResult = null; 
+                }, 2500);
+            }
+        }
+
+        function showLoadingView() {
+            const card = document.getElementById('result-card');
+            card.classList.remove('hidden');
+            card.className = "bg-white rounded-xl shadow-lg p-6 mb-6 text-center border-t-8 border-blue-500";
+            document.getElementById('result-icon').innerText = "⏳";
+            document.getElementById('result-title').innerText = "Verificando...";
+            document.getElementById('result-msg').innerText = "Consultando base de datos en tiempo real...";
+            document.getElementById('guest-info').classList.add('hidden');
+        }
+
+        function showStatus(type, title, msg, name = '', num = '') {
+            const card = document.getElementById('result-card');
+            const icon = document.getElementById('result-icon');
+            const rTitle = document.getElementById('result-title');
+            const rMsg = document.getElementById('result-msg');
+            const gInfo = document.getElementById('guest-info');
+            
+            card.classList.remove('hidden');
+            
+            if (type === 'SUCCESS') {
+                card.className = "bg-white rounded-xl shadow-lg p-6 mb-6 text-center border-t-8 border-green-500 bg-green-50/30";
+                icon.innerText = "✅";
+                rTitle.className = "text-2xl font-bold text-green-700 mb-1";
+            } else if (type === 'ALREADY') {
+                card.className = "bg-white rounded-xl shadow-lg p-6 mb-6 text-center border-t-8 border-amber-500 bg-amber-50/30";
+                icon.innerText = "❌";
+                rTitle.className = "text-2xl font-bold text-amber-600 mb-1";
+            } else { // INVALID oder ERROR
+                card.className = "bg-white rounded-xl shadow-lg p-6 mb-6 text-center border-t-8 border-red-600 bg-red-50/30";
+                icon.innerText = "🚨";
+                rTitle.className = "text-2xl font-bold text-red-600 mb-1";
+            }
+
+            rTitle.innerText = title;
+            rMsg.innerText = msg;
+
+            if (name) {
+                gInfo.classList.remove('hidden');
+                document.getElementById('guest-name').innerText = name;
+                document.getElementById('guest-num').innerText = num ? `Código: ${num}` : '';
+            } else {
+                gInfo.classList.add('hidden');
+            }
+        }
+
+        function resetScannerView() {
+            document.getElementById('result-card').classList.add('hidden');
+            lastResult = null;
+        }
+
+        // Scanner Initialisierung
+        function initScanner() {
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", 
+                { 
+                    fps: 15, 
+                    qrbox: { width: 250, height: 250 },
+                    rememberLastUsedCamera: true,
+                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+                },
+                /* verbose= */ false
+            );
+            html5QrcodeScanner.render(onScanSuccess);
+        }
+
+        // Startet den Scanner automatisch bei Seitenaufruf
+        window.addEventListener('DOMContentLoaded', initScanner);
+    </script>
+</body>
+</html>
