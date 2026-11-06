@@ -29,6 +29,8 @@
         }
         header h1 { margin: 0; font-size: 1.25rem; font-weight: bold; letter-spacing: 0.05em; }
         header p { margin: 0; font-size: 0.75rem; color: #93c5fd; }
+        .header-status { text-align: right; }
+        .version-label { font-size: 0.65rem; color: #93c5fd; font-family: monospace; margin-top: 0.25rem; display: block; }
         .badge {
             background-color: #1e3a8a;
             color: #dbeafe;
@@ -37,6 +39,7 @@
             border-radius: 9999px;
             font-weight: 600;
             border: 1px solid #1d4ed8;
+            display: inline-block;
         }
         main {
             flex-grow: 1;
@@ -95,7 +98,6 @@
         .scanner-footer { background-color: #f9fafb; padding: 1rem; border-top: 1px solid #f3f4f6; text-align: center; font-size: 0.75rem; color: #9ca3af; }
         footer { text-align: center; padding: 1rem; font-size: 0.75rem; color: #9ca3af; }
     </style>
-    <!-- Lokales Nachladen des QR-Scanner-Gehirns aus demselben Repository -->
     <script src="html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -105,7 +107,10 @@
             <h1>ASEGURADORA GENERAL</h1>
             <p>Control de Acceso de Invitados</p>
         </div>
-        <div class="badge">🟢 Sistema Activo</div>
+        <div class="header-status">
+            <div class="badge">🟢 Sistema Activo</div>
+            <span class="version-label">v1.1.0</span>
+        </div>
     </header>
 
     <main>
@@ -126,7 +131,7 @@
                 <button id="reset-btn" onclick="resetScannerView()">Limpiar pantalla</button>
             </div>
             
-            <div id="reader" style="width: 100%;"></div>
+            <div id="reader" style="min-height: 250px;"></div>
             
             <div class="scanner-footer">
                 Asegure una buena iluminación para el código QR.
@@ -178,7 +183,7 @@
                 }
             } catch (error) {
                 console.error("Datenbankfehler:", error);
-                showStatus('ERROR', 'Error de Conexión', 'No se konnte keine Verbindung zur DB herstellen.', '-');
+                showStatus('ERROR', 'Error de Conexión', 'No se pudo conectar a la base de datos.', '-');
             } finally {
                 setTimeout(() => { 
                     isProcessing = false; 
@@ -243,21 +248,17 @@
         }
 
         function initScanner() {
-            // Warten bis die externe JS geladen ist
-            if (typeof Html5QrcodeScanner !== 'undefined') {
-                html5QrcodeScanner = new Html5QrcodeScanner(
-                    "reader", 
-                    { 
-                        fps: 15, 
-                        qrbox: { width: 250, height: 250 },
-                        rememberLastUsedCamera: true
-                    },
-                    false
-                );
-                html5QrcodeScanner.render(onScanSuccess);
-            } else {
-                setTimeout(initScanner, 200);
-            }
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", 
+                { 
+                    fps: 15, 
+                    qrbox: { width: 250, height: 250 },
+                    rememberLastUsedCamera: true,
+                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+                },
+                /* verbose= */ false
+            );
+            html5QrcodeScanner.render(onScanSuccess);
         }
 
         window.addEventListener('DOMContentLoaded', initScanner);
