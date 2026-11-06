@@ -4,80 +4,212 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aseguradora General - Control de Acceso</title>
-    <!-- Tailwind CSS für modernes UI Framework -->
-    <script src="https://jsdelivr.net"></script>
-    <!-- HTML5-QR Code Scanner Library -->
-    <script src="https://unpkg.com"></script>
     <style>
-        /* Aseguradora General Farbpalette (Dunkelblau Corporate Identity) */
         :root {
             --ag-blue: #002855;
             --ag-accent: #004b87;
         }
-        body { background-color: #f4f6f9; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { 
+            background-color: #f4f6f9; 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; 
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background-color: var(--ag-blue);
+            color: white;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        header h1 { margin: 0; font-size: 1.25rem; font-weight: bold; letter-spacing: 0.05em; }
+        header p { margin: 0; font-size: 0.75rem; color: #93c5fd; }
+        .badge {
+            background-color: #1e3a8a;
+            color: #dbeafe;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            border: 1px solid #1d4ed8;
+        }
+        main {
+            flex-grow: 1;
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            padding: 1rem;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.05);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+        #result-card { border-top: 8px solid #d1d5db; display: none; }
+        #result-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+        #result-title { font-size: 1.5rem; font-weight: bold; margin: 0 0 0.25rem 0; }
+        #result-msg { color: #4b5563; font-weight: 500; margin: 0 0 1rem 0; }
+        #guest-info {
+            background-color: #f9fafb;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            border: 1px solid #f3f4f6;
+            text-align: left;
+        }
+        .info-label { font-size: 0.75rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
+        #guest-name { font-size: 1.125rem; font-weight: bold; color: #1f2937; margin: 0; }
+        #guest-num { font-size: 0.875rem; font-family: monospace; color: #6b7280; margin: 0.25rem 0 0 0; }
+        .scanner-container {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.05);
+            overflow: hidden;
+            border: 1px solid #f3f4f6;
+        }
+        .scanner-header {
+            background-color: #f9fafb;
+            padding: 1rem;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .scanner-title { font-size: 0.875rem; font-weight: bold; color: #374151; }
+        #reset-btn { font-size: 0.75rem; font-weight: 600; color: var(--ag-accent); background: none; border: none; cursor: pointer; }
+        #reset-btn:hover { text-decoration: underline; }
+        #reader { width: 100%; background-color: black; position: relative; }
+        .scanner-footer { background-color: #f9fafb; padding: 1rem; border-top: 1px solid #f3f4f6; text-align: center; font-size: 0.75rem; color: #9ca3af; }
+        footer { text-align: center; padding: 1rem; font-size: 0.75rem; color: #9ca3af; }
+        
+        .scan-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 3px solid #3b82f6;
+            border-radius: 12px;
+            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+        }
     </style>
 </head>
-<body class="flex flex-col min-h-screen">
+<body>
 
-    <!-- Header / Navbar im Corporate Design -->
-    <header class="bg-[#002855] text-white shadow-md py-4 px-6 flex justify-between items-center">
+    <header>
         <div>
-            <h1 class="text-lg font-bold tracking-wider">ASEGURADORA GENERAL</h1>
-            <p class="text-xs text-blue-200">Control de Acceso de Invitados</p>
+            <h1>ASEGURADORA GENERAL</h1>
+            <p>Control de Acceso de Invitados</p>
         </div>
-        <div class="bg-blue-900 text-xs px-3 py-1 rounded-full text-blue-100 font-semibold border border-blue-700">
-            🟢 Sistema Activo
-        </div>
+        <div class="badge">🟢 Sistema Activo</div>
     </header>
 
-    <!-- Main Container -->
-    <main class="flex-grow container mx-auto max-w-md p-4 flex flex-col justify-center">
-        
-        <!-- Status- und Ergebnis-Anzeige (Dynamisch) -->
-        <div id="result-card" class="bg-white rounded-xl shadow-lg p-6 mb-6 text-center border-t-8 border-gray-300 transition-all duration-300 hidden">
-            <div id="result-icon" class="text-5xl mb-2">📋</div>
-            <h2 id="result-title" class="text-2xl font-bold mb-1">Estado</h2>
-            <p id="result-msg" class="text-gray-600 font-medium mb-4">Escanee un código QR para comenzar.</p>
-            <div id="guest-info" class="bg-gray-50 rounded-lg p-3 border border-gray-100 text-left hidden">
-                <p class="text-xs text-gray-400 uppercase tracking-wider">Invitado</p>
-                <p id="guest-name" class="text-lg font-bold text-gray-800">-</p>
-                <p id="guest-num" class="text-sm font-mono text-gray-500 mt-1">-</p>
+    <main>
+        <div id="result-card" class="card">
+            <div id="result-icon">📋</div>
+            <h2 id="result-title">Estado</h2>
+            <p id="result-msg">Escanee un código QR para comenzar.</p>
+            <div id="guest-info">
+                <p class="info-label">Invitado</p>
+                <p id="guest-name">-</p>
+                <p id="guest-num">-</p>
             </div>
         </div>
 
-        <!-- Scanner Card -->
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-            <div class="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
-                <span class="text-sm font-bold text-gray-700">Cámara de Escaneo</span>
-                <button id="reset-btn" class="text-xs font-semibold text-[#004b87] hover:underline" onclick="resetScannerView()">Limpiar pantalla</button>
+        <div class="scanner-container">
+            <div class="scanner-header">
+                <span class="scanner-title">Cámara de Escaneo</span>
+                <button id="reset-btn" onclick="resetScannerView()">Limpiar pantalla</button>
             </div>
             
-            <!-- Hier wird das Kamera-Feed gerendert -->
-            <div id="reader" class="w-full bg-black"></div>
+            <div id="reader">
+                <video id="webcam-preview" autoplay playsinline style="width: 100%; height: 320px; object-fit: cover; background: black;"></video>
+                <div class="scan-overlay"></div>
+            </div>
             
-            <div class="p-4 bg-gray-50 border-t border-gray-100 text-center">
-                <p class="text-xs text-gray-400">Asegure una buena iluminación para el código QR.</p>
+            <div class="scanner-footer">
+                Asegure una buena iluminación para el código QR.
             </div>
         </div>
-
     </main>
 
-    <!-- Footer -->
-    <footer class="text-center py-4 text-xs text-gray-400">
+    <footer>
         &copy; 2026 Aseguradora General, S.A. Todos los derechos reservados.
     </footer>
 
     <script>
-        // --- CONFIGURACIÓN DE SUPABASE (LIVE-DATEN BEREITS AKTUALISIERT) ---
-        const SUPABASE_URL = "https://supabase.co";
+        const SUPABASE_URL = "https://ihlgngbrhxlhjptxlxfp.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_vwBzzamSzpwoY-Hq4kYjNQ_ooAlwBaw";
 
-        let html5QrcodeScanner;
         let lastResult = null;
         let isProcessing = false;
+        let videoElement = document.getElementById('webcam-preview');
 
-        async function onScanSuccess(decodedText, decodedResult) {
-            // Verhindert doppeltes Triggern, während der Server noch antwortet
+        const barcodeDetectorAvailable = ('BarcodeDetector' in window);
+        let barcodeDetector = null;
+        if (barcodeDetectorAvailable) {
+            try {
+                barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+            } catch (e) {
+                console.warn("BarcodeDetector Fallback aktiv");
+            }
+        }
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: "environment",
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } 
+                });
+                videoElement.srcObject = stream;
+                requestAnimationFrame(scanTick);
+            } catch (err) {
+                console.error("Kamera-Fehler: ", err);
+                document.getElementById('reader').innerHTML = '<div style="padding:40px 20px;color:#dc2626;text-align:center;font-weight:bold;">⚠️ Error: Permiso de cámara denegado o no disponible.</div>';
+            }
+        }
+
+        async function scanTick() {
+            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA && !isProcessing) {
+                try {
+                    let codeFound = null;
+
+                    if (barcodeDetector) {
+                        const barcodes = await barcodeDetector.detect(videoElement);
+                        if (barcodes.length > 0) {
+                            codeFound = barcodes.rawValue;
+                        }
+                    }
+
+                    if (codeFound) {
+                        onScanSuccess(codeFound);
+                    }
+                } catch (e) {
+                    // Stille Fehlerbehandlung
+                }
+            }
+            requestAnimationFrame(scanTick);
+        }
+
+        async function onScanSuccess(decodedText) {
             if (isProcessing || decodedText === lastResult) return;
             
             isProcessing = true;
@@ -86,7 +218,6 @@
             showLoadingView();
 
             try {
-                // Aufruf der in Supabase geschriebenen RPC-Funktion (Sicher gegen zeitgleiche Zugriffe)
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_and_scan_guest`, {
                     method: 'POST',
                     headers: {
@@ -110,25 +241,26 @@
                     }
                 }
             } catch (error) {
-                console.error("Error connecting to database:", error);
-                showStatus('ERROR', 'Error de Conexión', 'No se pudo verificar en la base de datos. Intente de nuevo.', '-');
+                console.error("Datenbankfehler:", error);
+                showStatus('ERROR', 'Error de Conexión', 'No se pudo conectar a la base de datos.', '-');
             } finally {
-                // Nach 2,5 Sekunden kann der nächste Code gescannt werden
                 setTimeout(() => { 
                     isProcessing = false; 
                     lastResult = null; 
-                }, 2500);
+                }, 3000);
             }
         }
 
         function showLoadingView() {
             const card = document.getElementById('result-card');
-            card.classList.remove('hidden');
-            card.className = "bg-white rounded-xl shadow-lg p-6 mb-6 text-center border-t-8 border-blue-500";
+            card.style.display = 'block';
+            card.style.borderTopColor = '#3b82f6';
+            card.style.backgroundColor = '#ffffff';
             document.getElementById('result-icon').innerText = "⏳";
             document.getElementById('result-title').innerText = "Verificando...";
-            document.getElementById('result-msg').innerText = "Consultando base de datos en tiempo real...";
-            document.getElementById('guest-info').classList.add('hidden');
+            document.getElementById('result-title').style.color = '#1f2937';
+            document.getElementById('result-msg').innerText = "Consultando base de datos...";
+            document.getElementById('guest-info').style.display = 'none';
         }
 
         function showStatus(type, title, msg, name = '', num = '') {
@@ -138,56 +270,43 @@
             const rMsg = document.getElementById('result-msg');
             const gInfo = document.getElementById('guest-info');
             
-            card.classList.remove('hidden');
+            card.style.display = 'block';
             
             if (type === 'SUCCESS') {
-                card.className = "bg-white rounded-xl shadow-lg p-6 mb-6 text-center border-t-8 border-green-500 bg-green-50/30";
+                card.style.borderTopColor = '#10b981';
+                card.style.backgroundColor = '#f0fdf4';
                 icon.innerText = "✅";
-                rTitle.className = "text-2xl font-bold text-green-700 mb-1";
+                rTitle.style.color = '#15803d';
             } else if (type === 'ALREADY') {
-                card.className = "bg-white rounded-xl shadow-lg p-6 mb-6 text-center border-t-8 border-amber-500 bg-amber-50/30";
+                card.style.borderTopColor = '#f59e0b';
+                card.style.backgroundColor = '#fffbeb';
                 icon.innerText = "❌";
-                rTitle.className = "text-2xl font-bold text-amber-600 mb-1";
-            } else { // INVALID oder ERROR
-                card.className = "bg-white rounded-xl shadow-lg p-6 mb-6 text-center border-t-8 border-red-600 bg-red-50/30";
+                rTitle.style.color = '#b45309';
+            } else {
+                card.style.borderTopColor = '#dc2626';
+                card.style.backgroundColor = '#fef2f2';
                 icon.innerText = "🚨";
-                rTitle.className = "text-2xl font-bold text-red-600 mb-1";
+                rTitle.style.color = '#b91c1c';
             }
 
             rTitle.innerText = title;
             rMsg.innerText = msg;
 
             if (name) {
-                gInfo.classList.remove('hidden');
+                gInfo.style.display = 'block';
                 document.getElementById('guest-name').innerText = name;
                 document.getElementById('guest-num').innerText = num ? `Código: ${num}` : '';
             } else {
-                gInfo.classList.add('hidden');
+                gInfo.style.display = 'none';
             }
         }
 
         function resetScannerView() {
-            document.getElementById('result-card').classList.add('hidden');
+            document.getElementById('result-card').style.display = 'none';
             lastResult = null;
         }
 
-        // Scanner Initialisierung
-        function initScanner() {
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader", 
-                { 
-                    fps: 15, 
-                    qrbox: { width: 250, height: 250 },
-                    rememberLastUsedCamera: true,
-                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-                },
-                /* verbose= */ false
-            );
-            html5QrcodeScanner.render(onScanSuccess);
-        }
-
-        // Startet den Scanner automatisch bei Seitenaufruf
-        window.addEventListener('DOMContentLoaded', initScanner);
+        window.addEventListener('DOMContentLoaded', startCamera);
     </script>
 </body>
 </html>
