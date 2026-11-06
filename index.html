@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aseguradora General - Control de Acceso</title>
-    <!-- Fallback-Sicherheit über cdnjs (Cloudflare), falls jsdelivr/unpkg blockiert sind -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" integrity="sha512-r6rDA7W6ZeQhvl8S7yRVQUKVHdxW+CD68BS0yb1fEGGYEYyb1FkmrHBKWKCHlXUPn6bInE9XwHexWagVCv6E9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- Local loading of html5-qrcode library to bypass ORB/CDN blocks -->
+    <script src="html5-qrcode.min.js"></script>
     <style>
         :root {
             --ag-blue: #002855;
@@ -33,10 +33,6 @@
         header p { margin: 0; font-size: 0.75rem; color: #93c5fd; }
         .header-right {
             text-align: right;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 0.25rem;
         }
         .badge {
             background-color: #1e3a8a;
@@ -46,11 +42,13 @@
             border-radius: 9999px;
             font-weight: 600;
             border: 1px solid #1d4ed8;
+            display: inline-block;
         }
         .version {
             font-size: 0.65rem;
             color: #93c5fd;
-            font-family: monospace;
+            margin-top: 2px;
+            display: block;
         }
         main {
             flex-grow: 1;
@@ -105,7 +103,7 @@
         .scanner-title { font-size: 0.875rem; font-weight: bold; color: #374151; }
         #reset-btn { font-size: 0.75rem; font-weight: 600; color: var(--ag-accent); background: none; border: none; cursor: pointer; }
         #reset-btn:hover { text-decoration: underline; }
-        #reader { width: 100%; background-color: white; }
+        #reader { width: 100%; background-color: black; }
         .scanner-footer { background-color: #f9fafb; padding: 1rem; border-top: 1px solid #f3f4f6; text-align: center; font-size: 0.75rem; color: #9ca3af; }
         footer { text-align: center; padding: 1rem; font-size: 0.75rem; color: #9ca3af; }
     </style>
@@ -119,7 +117,7 @@
         </div>
         <div class="header-right">
             <div class="badge">🟢 Sistema Activo</div>
-            <div class="version">v1.2.0</div>
+            <span class="version">v1.1.0</span>
         </div>
     </header>
 
@@ -163,7 +161,7 @@
         let lastResult = null;
         let isProcessing = false;
 
-        function onScanSuccess(decodedText, decodedResult) {
+        async function onScanSuccess(decodedText, decodedResult) {
             if (isProcessing || decodedText === lastResult) return;
             
             isProcessing = true;
@@ -171,17 +169,19 @@
             
             showLoadingView();
 
-            fetch(`${SUPABASE_URL}/rest/v1/rpc/check_and_scan_guest`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                },
-                body: JSON.stringify({ target_guest_num: decodedText })
-            })
-            .then(response => response.json())
-            .then(data => {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_and_scan_guest`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ target_guest_num: decodedText })
+                });
+
+                const data = await response.json();
+                
                 if (!data || data.length === 0 || data.status === null) {
                     showStatus('INVALID', 'Código Inválido', 'Este código QR no pertenece a la lista de invitados.', decodedText);
                 } else {
@@ -191,17 +191,15 @@
                         showStatus('ALREADY', '⚠️ Código Ya Utilizado', 'Este boleto ya ingresó anteriormente.', data.guest_name, decodedText);
                     }
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error("Datenbankfehler:", error);
-                showStatus('ERROR', 'Error de Conexión', 'No se pudo conectar a la base de datos.', '-');
-            })
-            .finally(() => {
+                showStatus('ERROR', 'Error de Conexión', 'No se konnte keine Verbindung zur Datenbank aufbauen.', '-');
+            } finally {
                 setTimeout(() => { 
                     isProcessing = false; 
                     lastResult = null; 
                 }, 3000);
-            });
+            }
         }
 
         function showLoadingView() {
@@ -260,26 +258,10 @@
         }
 
         function initScanner() {
-            // Falls das CDN blockiert wurde, versuchen wir ein dynamisches Fallback auf unpkg/jsdelivr im Code-Context
-            if (typeof Html5QrcodeScanner === 'undefined') {
-                console.warn("cdnjs blockiert, lade alternatives CDN...");
-                let script = document.createElement('script');
-                script.src = "https://unpkg.com/html5-qrcode";
-                script.onload = () => { setupScannerInstance(); };
-                script.onerror = () => {
-                    document.getElementById('reader').innerHTML = '<div style="padding:20px;color:red;text-align:center;">🚨 Error: No se pudieron cargar los scripts del escáner. Verifique su red.</div>';
-                };
-                document.head.appendChild(script);
-            } else {
-                setupScannerInstance();
-            }
-        }
-
-        function setupScannerInstance() {
             html5QrcodeScanner = new Html5QrcodeScanner(
                 "reader", 
                 { 
-                    fps: 15, 
+                    fps: 10, 
                     qrbox: { width: 250, height: 250 },
                     rememberLastUsedCamera: true,
                     supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
