@@ -1,109 +1,103 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR & Ticket Generator – Aseguradora General</title>
+    <title>Generador QR y Tickets – Aseguradora General</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        .bg-corporate { background-color: #003366; }
-        .text-corporate { color: #003366; }
-        .border-corporate { border-color: #003366; }
+        :root { --ag-red: #E30613; --ag-red-dark: #C10510; }
+        .bg-ag-red { background-color: var(--ag-red); }
+        .hover\:bg-ag-red:hover { background-color: var(--ag-red-dark); }
+        .text-ag-red { color: var(--ag-red); }
+        .border-ag-red { border-color: var(--ag-red); }
     </style>
 </head>
-<body class="bg-gray-100 font-sans min-h-screen">
+<body class="bg-gray-50 font-sans min-h-screen">
 
-    <header class="bg-corporate text-white p-5 text-center shadow-lg">
-        <h1 class="text-2xl font-bold uppercase tracking-wide">Aseguradora General</h1>
-        <p class="text-sm text-blue-200 mt-1">QR-Code & Ticket de Acceso Generator</p>
+    <header class="bg-white border-b border-gray-200 shadow-sm">
+        <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-center">
+            <img src="https://www.aseguradorageneral.com/hs-fs/hubfs/aseguradora/icon_logo_2.png?width=220&name=icon_logo_2.png"
+                 alt="Aseguradora General" style="height: 44px; width: auto;">
+        </div>
+        <div class="bg-ag-red text-white text-center py-1.5 text-xs font-medium tracking-wide">
+            Generador de Códigos QR y Tickets de Acceso
+        </div>
     </header>
 
     <main class="max-w-3xl mx-auto p-6">
 
-        <!-- Beispiel-CSV -->
-        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div class="bg-red-50 border border-red-100 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-                <p class="font-semibold text-blue-900 text-sm">Beispiel-Datei mit 100 Gästen</p>
-                <p class="text-xs text-blue-700 mt-0.5">Zum Testen herunterladen und danach hier hochladen</p>
+                <p class="font-semibold text-gray-900 text-sm">Archivo de ejemplo con 100 invitados</p>
+                <p class="text-xs text-gray-600 mt-0.5">Descárgalo para probar y luego súbelo aquí</p>
             </div>
-            <button id="downloadExampleBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg whitespace-nowrap">
-                📥 Beispiel-CSV herunterladen
+            <button id="downloadExampleBtn" class="bg-ag-red hover:bg-ag-red text-white text-sm font-medium py-2 px-4 rounded-lg whitespace-nowrap shadow-sm">
+                📥 Descargar CSV de ejemplo
             </button>
         </div>
 
-        <!-- Upload -->
-        <div class="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200">
-            <h2 class="text-lg font-bold text-gray-800 mb-4">1. CSV-Datei hochladen</h2>
-            
-            <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors">
+        <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-100">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">1. Subir archivo CSV</h2>
+            <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-red-400 transition-colors">
                 <input type="file" id="csvFile" accept=".csv" class="hidden">
                 <label for="csvFile" class="cursor-pointer">
                     <div class="text-4xl mb-3">📄</div>
-                    <p class="text-gray-600 font-medium">CSV hier ablegen oder klicken</p>
-                    <p class="text-xs text-gray-400 mt-2">Format: guest_number,name</p>
+                    <p class="text-gray-600 font-medium">Haz clic o arrastra el archivo CSV aquí</p>
+                    <p class="text-xs text-gray-400 mt-2">Formato: guest_number,name</p>
                 </label>
             </div>
-
             <div id="fileInfo" class="mt-4 text-sm text-gray-600 hidden">
-                <span class="font-semibold">Datei:</span> <span id="fileName"></span>
-                <span class="ml-4 font-semibold">Zeilen:</span> <span id="rowCount">0</span>
+                <span class="font-semibold">Archivo:</span> <span id="fileName"></span>
+                <span class="ml-4 font-semibold">Filas:</span> <span id="rowCount">0</span>
             </div>
         </div>
 
-        <!-- Optionen + Download -->
-        <div id="previewSection" class="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200 hidden">
-            <h2 class="text-lg font-bold text-gray-800 mb-4">2. Ausgabe wählen</h2>
-
+        <div id="previewSection" class="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-100 hidden">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">2. Elegir tipo de salida</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <label class="flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer hover:border-blue-400 transition-colors border-gray-200 has-[:checked]:border-corporate has-[:checked]:bg-blue-50">
-                    <input type="radio" name="outputType" value="qr" class="w-5 h-5 text-corporate" checked>
+                <label class="flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer hover:border-red-300 transition-colors border-gray-200 has-[:checked]:border-ag-red has-[:checked]:bg-red-50">
+                    <input type="radio" name="outputType" value="qr" class="w-5 h-5 accent-red-600" checked>
                     <div>
-                        <div class="font-semibold text-gray-800">Nur QR-Codes</div>
-                        <div class="text-xs text-gray-500">ZIP mit PNG-Dateien</div>
+                        <div class="font-semibold text-gray-800">Solo códigos QR</div>
+                        <div class="text-xs text-gray-500">ZIP con archivos PNG</div>
                     </div>
                 </label>
-
-                <label class="flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer hover:border-blue-400 transition-colors border-gray-200 has-[:checked]:border-corporate has-[:checked]:bg-blue-50">
-                    <input type="radio" name="outputType" value="ticket" class="w-5 h-5 text-corporate">
+                <label class="flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer hover:border-red-300 transition-colors border-gray-200 has-[:checked]:border-ag-red has-[:checked]:bg-red-50">
+                    <input type="radio" name="outputType" value="ticket" class="w-5 h-5 accent-red-600">
                     <div>
                         <div class="font-semibold text-gray-800">Tickets de Acceso</div>
-                        <div class="text-xs text-gray-500">ZIP mit fertigen PDF-Tickets</div>
+                        <div class="text-xs text-gray-500">ZIP con PDFs listos para imprimir</div>
                     </div>
                 </label>
             </div>
-
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                 <div id="status" class="text-sm text-gray-500"></div>
-                <button id="downloadBtn" 
-                        class="bg-corporate hover:bg-blue-900 text-white font-bold py-2.5 px-6 rounded-xl shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto">
-                    📦 ZIP herunterladen
+                <button id="downloadBtn" class="bg-ag-red hover:bg-ag-red text-white font-bold py-2.5 px-6 rounded-xl shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto">
+                    📦 Descargar ZIP
                 </button>
             </div>
-
             <div id="previewGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
         </div>
 
-        <!-- Fortschritt -->
-        <div id="progressBox" class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 hidden">
-            <h3 class="font-bold text-gray-800 mb-2">Generiere Dateien...</h3>
+        <div id="progressBox" class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hidden">
+            <h3 class="font-bold text-gray-800 mb-2">Generando archivos...</h3>
             <div class="w-full bg-gray-200 rounded-full h-3">
-                <div id="progressBar" class="bg-corporate h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                <div id="progressBar" class="bg-ag-red h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
             <p id="progressText" class="text-sm text-gray-500 mt-2">0 / 0</p>
         </div>
-
     </main>
 
-    <footer class="text-center py-4 text-xs text-gray-500">
+    <footer class="bg-white border-t border-gray-200 text-center py-4 text-xs text-gray-500">
         © 2026 Aseguradora General, S.A. · Guatemala
     </footer>
 
     <script>
-        // ========== 100 Beispiel-Gäste ==========
         const EXAMPLE_CSV = `guest_number,name
 AG-10001,Juan Pérez
 AG-10002,María Rodríguez
@@ -207,23 +201,33 @@ AG-10099,Mateo Martínez
 AG-10100,Regina Rodríguez`;
 
         document.getElementById('downloadExampleBtn').addEventListener('click', () => {
-            const blob = new Blob([EXAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
-            saveAs(blob, 'Testdaten_100_Gaeste.csv');
+            saveAs(new Blob([EXAMPLE_CSV], { type: 'text/csv;charset=utf-8;' }), 'Ejemplo_100_Invitados.csv');
         });
 
         let guests = [];
-
-        const csvFileInput   = document.getElementById('csvFile');
-        const fileInfo       = document.getElementById('fileInfo');
-        const fileNameEl     = document.getElementById('fileName');
-        const rowCountEl     = document.getElementById('rowCount');
+        const csvFileInput = document.getElementById('csvFile');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileNameEl = document.getElementById('fileName');
+        const rowCountEl = document.getElementById('rowCount');
         const previewSection = document.getElementById('previewSection');
-        const previewGrid    = document.getElementById('previewGrid');
-        const downloadBtn    = document.getElementById('downloadBtn');
-        const statusEl       = document.getElementById('status');
-        const progressBox    = document.getElementById('progressBox');
-        const progressBar    = document.getElementById('progressBar');
-        const progressText   = document.getElementById('progressText');
+        const previewGrid = document.getElementById('previewGrid');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statusEl = document.getElementById('status');
+        const progressBox = document.getElementById('progressBox');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+
+        // Logo como imagen para los PDFs
+        let logoDataUrl = null;
+        (async () => {
+            try {
+                const resp = await fetch('https://www.aseguradorageneral.com/hs-fs/hubfs/aseguradora/icon_logo_2.png?width=434&name=icon_logo_2.png');
+                const blob = await resp.blob();
+                const reader = new FileReader();
+                reader.onload = () => { logoDataUrl = reader.result; };
+                reader.readAsDataURL(blob);
+            } catch(e) { console.warn('No se pudo cargar el logo', e); }
+        })();
 
         csvFileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -256,11 +260,11 @@ AG-10100,Regina Rodríguez`;
             if (guests.length > 8) {
                 const more = document.createElement('div');
                 more.className = 'col-span-full text-center text-sm text-gray-500 py-2';
-                more.textContent = `… und ${guests.length - 8} weitere`;
+                more.textContent = `… y ${guests.length - 8} más`;
                 previewGrid.appendChild(more);
             }
             downloadBtn.disabled = false;
-            statusEl.textContent = `${guests.length} Gäste geladen.`;
+            statusEl.textContent = `${guests.length} invitados cargados.`;
         }
 
         function createQRPreview(guest) {
@@ -268,15 +272,7 @@ AG-10100,Regina Rodríguez`;
             card.className = 'bg-gray-50 rounded-xl p-3 text-center border border-gray-200';
             const canvas = document.createElement('canvas');
             card.appendChild(canvas);
-            new QRious({
-                element: canvas,
-                value: guest.guest_number,
-                size: 100,
-                foreground: '#000000',
-                background: '#ffffff',
-                level: 'M',
-                padding: 10
-            });
+            new QRious({ element: canvas, value: guest.guest_number, size: 100, foreground: '#000000', background: '#ffffff', level: 'M', padding: 10 });
             const label = document.createElement('p');
             label.className = 'text-xs font-mono text-gray-700 truncate mt-2';
             label.textContent = guest.guest_number;
@@ -289,113 +285,98 @@ AG-10100,Regina Rodríguez`;
         }
 
         function safeFilename(name) {
-            return name
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .replace(/[^a-zA-Z0-9\-_\s]/g, '')
-                .trim()
-                .replace(/\s+/g, '_');
+            return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9\-_\s]/g, '').trim().replace(/\s+/g, '_');
         }
 
-        // ========== Ticket PDF erstellen ==========
+        // ========== Ticket PDF moderno con logo ==========
         function createTicketPDF(guest) {
             const { jsPDF } = window.jspdf;
-            // Hochformat, Ticket-Größe (ähnlich dem Beispiel)
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: [90, 160]          // schmales Ticket
-            });
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [90, 160] });
+            const pageW = 90, pageH = 160;
 
-            const pageW = 90;
-            const pageH = 160;
-
-            // Hintergrund dunkelblau
-            pdf.setFillColor(0, 51, 102);   // #003366
+            // Fondo oscuro moderno
+            pdf.setFillColor(18, 18, 18);
             pdf.rect(0, 0, pageW, pageH, 'F');
 
-            // Obere dekorative Fläche
-            pdf.setFillColor(0, 40, 80);
-            pdf.rect(0, 0, pageW, 48, 'F');
+            // Franja roja superior
+            pdf.setFillColor(227, 6, 19);
+            pdf.rect(0, 0, pageW, 8, 'F');
 
-            // Firmenname
-            pdf.setTextColor(255, 255, 255);
-            pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(11);
-            pdf.text('ASEGURADORA GENERAL', pageW / 2, 16, { align: 'center' });
+            // Logo oficial (si está cargado)
+            if (logoDataUrl) {
+                try {
+                    pdf.addImage(logoDataUrl, 'PNG', 15, 14, 60, 15.5);
+                } catch(e) {
+                    pdf.setTextColor(255,255,255);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(11);
+                    pdf.text('ASEGURADORA GENERAL', pageW/2, 22, { align: 'center' });
+                }
+            } else {
+                pdf.setTextColor(255,255,255);
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(11);
+                pdf.text('ASEGURADORA GENERAL', pageW/2, 22, { align: 'center' });
+            }
 
-            // Untertitel
+            // Subtítulo
+            pdf.setTextColor(200, 200, 200);
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(8);
-            pdf.setTextColor(180, 210, 255);
-            pdf.text('TICKET DE ACCESO', pageW / 2, 24, { align: 'center' });
+            pdf.text('TICKET DE ACCESO', pageW/2, 36, { align: 'center' });
 
-            // Linie
-            pdf.setDrawColor(255, 255, 255);
-            pdf.setLineWidth(0.3);
-            pdf.line(20, 30, 70, 30);
+            // Línea decorativa
+            pdf.setDrawColor(227, 6, 19);
+            pdf.setLineWidth(0.6);
+            pdf.line(25, 40, 65, 40);
 
-            // Kleiner Text
-            pdf.setFontSize(7);
-            pdf.setTextColor(150, 190, 255);
-            pdf.text('Evento Corporativo', pageW / 2, 38, { align: 'center' });
-
-            // Weißer Kasten für QR + Name
+            // Caja blanca para QR + nombre
             pdf.setFillColor(255, 255, 255);
-            pdf.roundedRect(10, 55, 70, 85, 4, 4, 'F');
+            pdf.roundedRect(8, 48, 74, 90, 5, 5, 'F');
 
-            // QR-Code erzeugen
+            // QR
             const qrCanvas = document.createElement('canvas');
             new QRious({
                 element: qrCanvas,
                 value: guest.guest_number,
-                size: 280,
-                foreground: '#000000',
+                size: 300,
+                foreground: '#111111',
                 background: '#ffffff',
                 level: 'H',
-                padding: 20
+                padding: 16
             });
+            pdf.addImage(qrCanvas.toDataURL('image/png'), 'PNG', 20, 54, 50, 50);
 
-            const qrData = qrCanvas.toDataURL('image/png');
-            // QR zentriert platzieren
-            pdf.addImage(qrData, 'PNG', 20, 60, 50, 50);
-
-            // Name des Gastes
-            pdf.setTextColor(0, 51, 102);
+            // Nombre del invitado
+            pdf.setTextColor(18, 18, 18);
             pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(11);
+            pdf.setFontSize(12);
+            const nameLines = pdf.splitTextToSize(guest.name, 64);
+            const nameY = 112 + (nameLines.length > 1 ? 0 : 2);
+            pdf.text(nameLines, pageW/2, nameY, { align: 'center' });
 
-            // Name umbrechen falls zu lang
-            const nameLines = pdf.splitTextToSize(guest.name, 60);
-            pdf.text(nameLines, pageW / 2, 118, { align: 'center' });
-
-            // Guest Number klein darunter
+            // Número de invitado
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(8);
-            pdf.setTextColor(100, 100, 100);
-            pdf.text(guest.guest_number, pageW / 2, 130, { align: 'center' });
+            pdf.setTextColor(120, 120, 120);
+            pdf.text(guest.guest_number, pageW/2, 128, { align: 'center' });
 
-            // Unterer Bereich
-            pdf.setFillColor(0, 40, 80);
-            pdf.rect(0, 145, pageW, 15, 'F');
-
-            pdf.setTextColor(200, 220, 255);
-            pdf.setFontSize(7);
-            pdf.text('Aseguradora General, S.A. · Guatemala', pageW / 2, 154, { align: 'center' });
+            // Pie inferior rojo
+            pdf.setFillColor(227, 6, 19);
+            pdf.rect(0, 148, pageW, 12, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(6.5);
+            pdf.text('Aseguradora General, S.A.  ·  Guatemala', pageW/2, 155.5, { align: 'center' });
 
             return pdf;
         }
 
-        // ========== Haupt-Download ==========
         downloadBtn.addEventListener('click', async function() {
             if (guests.length === 0) return;
-
             const outputType = document.querySelector('input[name="outputType"]:checked').value;
             downloadBtn.disabled = true;
             progressBox.classList.remove('hidden');
-            statusEl.textContent = outputType === 'ticket' 
-                ? 'Tickets de Acceso werden generiert...' 
-                : 'QR-Codes werden generiert...';
+            statusEl.textContent = outputType === 'ticket' ? 'Generando Tickets de Acceso...' : 'Generando códigos QR...';
 
             const zip = new JSZip();
             const total = guests.length;
@@ -406,43 +387,29 @@ AG-10100,Regina Rodríguez`;
                 const safeName = safeFilename(guest.name);
 
                 if (outputType === 'qr') {
-                    // Nur QR-Code PNG
-                    new QRious({
-                        element: canvas,
-                        value: guest.guest_number,
-                        size: 512,
-                        foreground: '#000000',
-                        background: '#ffffff',
-                        level: 'H',
-                        padding: 40
-                    });
-                    const dataUrl = canvas.toDataURL('image/png');
-                    const base64 = dataUrl.split(',')[1];
+                    new QRious({ element: canvas, value: guest.guest_number, size: 512, foreground: '#000000', background: '#ffffff', level: 'H', padding: 40 });
+                    const base64 = canvas.toDataURL('image/png').split(',')[1];
                     zip.file(`${guest.guest_number}_${safeName}.png`, base64, { base64: true });
                 } else {
-                    // Volles Ticket als PDF
                     const pdf = createTicketPDF(guest);
-                    const pdfBlob = pdf.output('blob');
-                    zip.file(`${guest.guest_number}_${safeName}.pdf`, pdfBlob);
+                    zip.file(`${guest.guest_number}_${safeName}.pdf`, pdf.output('blob'));
                 }
 
                 const percent = Math.round(((i + 1) / total) * 100);
                 progressBar.style.width = percent + '%';
                 progressText.textContent = `${i + 1} / ${total}`;
-
                 if (i % 5 === 0) await new Promise(r => setTimeout(r, 10));
             }
 
             const content = await zip.generateAsync({ type: 'blob' });
             const zipName = outputType === 'ticket'
                 ? `Tickets_Acceso_Aseguradora_General_${new Date().toISOString().slice(0,10)}.zip`
-                : `QR-Codes_Aseguradora_General_${new Date().toISOString().slice(0,10)}.zip`;
-
+                : `Codigos_QR_Aseguradora_General_${new Date().toISOString().slice(0,10)}.zip`;
             saveAs(content, zipName);
 
             progressBox.classList.add('hidden');
             downloadBtn.disabled = false;
-            statusEl.textContent = `Fertig! ZIP mit ${total} Dateien wurde heruntergeladen.`;
+            statusEl.textContent = `¡Listo! ZIP con ${total} archivos descargado.`;
         });
     </script>
 </body>
